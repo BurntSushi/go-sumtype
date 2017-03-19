@@ -20,6 +20,12 @@ For usage info, just run the command:
 $ go-sumtype
 ```
 
+Typical usage might look like this:
+
+```
+$ go-sumtype $(go list ./... | grep -v vendor)
+```
+
 ### Usage
 
 go-sumtype takes a list of Go package paths or files and looks for sum type
