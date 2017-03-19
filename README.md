@@ -46,10 +46,10 @@ Declarations are provided in comments like so:
 For valid declarations, `go-sumtype` will look for all occurrences in which a
 value of type `MySumType` participates in a type switch statement. In those
 occurrences, it will attempt to detect whether the type switch is exhaustive
-or not. If it's not, `go-sumtype` will report an error. For example:
+or not. If it's not, `go-sumtype` will report an error. For example, running
+`go-sumtype` on this source file:
 
-```
-$ cat mysumtype.go
+```go
 package main
 
 //go-sumtype:decl MySumType
@@ -71,6 +71,11 @@ func main() {
         case *VariantA:
         }
 }
+```
+
+produces the following:
+
+```
 $ go-sumtype mysumtype.go
 mysumtype.go:18:2: exhaustiveness check failed for sum type 'MySumType': missing cases for VariantB
 ```
