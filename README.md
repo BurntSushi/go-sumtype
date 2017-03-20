@@ -66,11 +66,11 @@ type MySumType interface {
 
 type VariantA struct{}
 
-func (a *VariantA) sealed() {}
+func (*VariantA) sealed() {}
 
 type VariantB struct{}
 
-func (b *VariantB) sealed() {}
+func (*VariantB) sealed() {}
 
 func main() {
         switch MySumType(nil).(type) {
