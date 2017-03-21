@@ -8,6 +8,9 @@ Exhaustiveness checks are only run on interfaces that are declared to be
 
 Dual-licensed under MIT or the [UNLICENSE](http://unlicense.org).
 
+This work was inspired by our code at
+[Diffeo](https://github.com/diffeo).
+
 ### Installation
 
 ```go
