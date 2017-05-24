@@ -62,6 +62,7 @@ func sumTypeDeclSearch(path string) ([]sumTypeDecl, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer f.Close()
 	lineNum := 0
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
