@@ -9,13 +9,13 @@ import (
 	"path/filepath"
 	"regexp"
 
-	"golang.org/x/tools/go/loader"
+	"golang.org/x/tools/go/packages"
 )
 
 // sumTypeDecl is a declaration of a sum type in a Go source file.
 type sumTypeDecl struct {
 	// The package path that contains this decl.
-	PackageInfo *loader.PackageInfo
+	Package *packages.Package
 	// The type named by this decl.
 	TypeName string
 	// The file path where this declaration was found.
@@ -31,24 +31,21 @@ func (d sumTypeDecl) Location() string {
 
 // findSumTypeDecls searches every package given for sum type declarations of
 // the form `go-sumtype:decl ...`.
-func findSumTypeDecls(prog *loader.Program) ([]sumTypeDecl, error) {
+func findSumTypeDecls(pkg *packages.Package) ([]sumTypeDecl, error) {
 	var decls []sumTypeDecl
-	for _, pkginfo := range prog.InitialPackages() {
-		for _, astfile := range pkginfo.Files {
-			filename := prog.Fset.Position(astfile.Package).Filename
-			if filepath.Base(filename) == "C" {
-				// ignore (fake?) cgo files
-				continue
-			}
-			fileDecls, err := sumTypeDeclSearch(filename)
-			if err != nil {
-				return nil, err
-			}
-			for i := range fileDecls {
-				fileDecls[i].PackageInfo = pkginfo
-			}
-			decls = append(decls, fileDecls...)
+	for _, fileName := range pkg.GoFiles {
+		if filepath.Base(fileName) == "C" {
+			// ignore (fake?) cgo files
+			continue
 		}
+		fileDecls, err := sumTypeDeclSearch(fileName)
+		if err != nil {
+			return nil, err
+		}
+		for i := range fileDecls {
+			fileDecls[i].Package = pkg
+		}
+		decls = append(decls, fileDecls...)
 	}
 	return decls, nil
 }

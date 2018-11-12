@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"golang.org/x/tools/go/loader"
+	"golang.org/x/tools/go/packages"
 )
 
 // inexhaustiveError is returned from check for each occurrence of inexhaustive
@@ -38,15 +38,15 @@ func (e inexhaustiveError) Names() []string {
 
 // check does exhaustiveness checking for the given sum type definitions in the
 // given package. Every instance of inexhaustive case analysis is returned.
-func check(prog *loader.Program, defs []sumTypeDef, pkg *loader.PackageInfo) []error {
+func check(pkg *packages.Package, defs []sumTypeDef) []error {
 	var errs []error
-	for _, astfile := range pkg.Files {
+	for _, astfile := range pkg.Syntax {
 		ast.Inspect(astfile, func(n ast.Node) bool {
 			swtch, ok := n.(*ast.TypeSwitchStmt)
 			if !ok {
 				return true
 			}
-			if err := checkSwitch(prog, pkg, defs, swtch); err != nil {
+			if err := checkSwitch(pkg, defs, swtch); err != nil {
 				errs = append(errs, err)
 			}
 			return true
@@ -63,15 +63,14 @@ func check(prog *loader.Program, defs []sumTypeDef, pkg *loader.PackageInfo) []e
 // Note that if the type switch contains a non-panicing default case, then
 // exhaustiveness checks are disabled.
 func checkSwitch(
-	prog *loader.Program,
-	pkg *loader.PackageInfo,
+	pkg *packages.Package,
 	defs []sumTypeDef,
 	swtch *ast.TypeSwitchStmt,
 ) error {
-	def, missing := missingVariantsInSwitch(prog, pkg, defs, swtch)
+	def, missing := missingVariantsInSwitch(pkg, defs, swtch)
 	if len(missing) > 0 {
 		return inexhaustiveError{
-			Pos:     prog.Fset.Position(swtch.Pos()),
+			Pos:     pkg.Fset.Position(swtch.Pos()),
 			Def:     *def,
 			Missing: missing,
 		}
@@ -84,13 +83,12 @@ func checkSwitch(
 // returned. (If no sum type definition could be found, then no exhaustiveness
 // checks are performed, and therefore, no missing variants are returned.)
 func missingVariantsInSwitch(
-	prog *loader.Program,
-	pkg *loader.PackageInfo,
+	pkg *packages.Package,
 	defs []sumTypeDef,
 	swtch *ast.TypeSwitchStmt,
 ) (*sumTypeDef, []types.Object) {
 	asserted := findTypeAssertExpr(swtch)
-	ty := pkg.TypeOf(asserted)
+	ty := pkg.TypesInfo.TypeOf(asserted)
 	def := findDef(defs, ty)
 	if def == nil {
 		// We couldn't find a corresponding sum type, so there's
@@ -104,7 +102,7 @@ func missingVariantsInSwitch(
 	}
 	var variantTypes []types.Type
 	for _, expr := range variantExprs {
-		variantTypes = append(variantTypes, pkg.TypeOf(expr))
+		variantTypes = append(variantTypes, pkg.TypesInfo.TypeOf(expr))
 	}
 	return def, def.missing(variantTypes)
 }

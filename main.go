@@ -1,66 +1,89 @@
 package main
 
 import (
-	"go/ast"
+	"fmt"
 	"log"
 	"os"
 	"strings"
 
-	"golang.org/x/tools/go/loader"
+	"golang.org/x/tools/go/packages"
 )
 
 func main() {
 	log.SetFlags(0)
 	if len(os.Args) < 2 {
-		log.Fatalf("Usage: go-sumtype <args>\n%s", loader.FromArgsUsage)
+		log.Fatalf(`Usage: go-sumtype PATTERN ...
+
+PATTERN may be a file name or a Go package pattern such as './things/...'.
+`)
 	}
-	pkgpaths := os.Args[1:]
-	prog, err := tycheckAll(pkgpaths)
-	if err != nil {
-		log.Fatal(err)
+
+	pkgs, errs := loadPackages(os.Args[1:])
+	if len(errs) > 0 {
+		exitWithErrors(errs)
 	}
-	if errs := run(prog); len(errs) > 0 {
-		var list []string
-		for _, err := range errs {
-			list = append(list, err.Error())
+	if len(pkgs) == 0 {
+		fmt.Fprintf(os.Stderr, "go-sumtype: warning: No Go files or packages matched.\n")
+		os.Exit(0)
+	}
+	for _, pkg := range pkgs {
+		if errs := run(pkg); len(errs) > 0 {
+			exitWithErrors(errs)
 		}
-		log.Fatal(strings.Join(list, "\n"))
 	}
 }
 
-func run(prog *loader.Program) []error {
+func run(pkg *packages.Package) []error {
 	var errs []error
 
-	decls, err := findSumTypeDecls(prog)
+	decls, err := findSumTypeDecls(pkg)
 	if err != nil {
 		return []error{err}
 	}
 
-	defs, defErrs := findSumTypeDefs(prog, decls)
+	defs, defErrs := findSumTypeDefs(pkg, decls)
 	errs = append(errs, defErrs...)
 	if len(defs) == 0 {
 		return errs
 	}
 
-	for _, pkg := range prog.InitialPackages() {
-		if pkgErrs := check(prog, defs, pkg); pkgErrs != nil {
-			errs = append(errs, pkgErrs...)
-		}
+	if pkgErrs := check(pkg, defs); pkgErrs != nil {
+		errs = append(errs, pkgErrs...)
 	}
 	return errs
 }
 
-func tycheckAll(pkgpaths []string) (*loader.Program, error) {
-	conf := &loader.Config{
-		AfterTypeCheck: func(info *loader.PackageInfo, files []*ast.File) {
-		},
+func loadPackages(specs []string) ([]*packages.Package, []error) {
+	var patterns []string
+	for _, spec := range specs {
+		patterns = append(patterns, fmt.Sprintf("pattern=%s", spec))
 	}
-	if _, err := conf.FromArgs(pkgpaths, true); err != nil {
-		return nil, err
+
+	conf := packages.Config{
+		Mode: packages.LoadSyntax,
 	}
-	prog, err := conf.Load()
+
+	pkgs, err := packages.Load(&conf, patterns...)
 	if err != nil {
-		return nil, err
+		return nil, []error{err}
 	}
-	return prog, nil
+	var errs []error
+	var result []*packages.Package
+	for _, pkg := range pkgs {
+		for _, err := range pkg.Errors {
+			errs = append(errs, err)
+		}
+		if len(pkg.GoFiles) > 0 {
+			result = append(result, pkg)
+		}
+	}
+	return result, errs
+}
+
+func exitWithErrors(errs []error) {
+	var list []string
+	for _, err := range errs {
+		list = append(list, err.Error())
+	}
+	log.Fatal(strings.Join(list, "\n"))
 }

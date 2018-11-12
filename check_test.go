@@ -27,10 +27,10 @@ func main() {
 	}
 }
 `
-	tmpdir, prog := setupPackage(t, code)
+	tmpdir, pkg := setupPackage(t, code)
 	defer teardownPackage(t, tmpdir)
 
-	errs := run(prog)
+	errs := run(pkg)
 	if !assert.Len(t, errs, 1) {
 		t.FailNow()
 	}
@@ -61,10 +61,10 @@ func main() {
 	}
 }
 `
-	tmpdir, prog := setupPackage(t, code)
+	tmpdir, pkg := setupPackage(t, code)
 	defer teardownPackage(t, tmpdir)
 
-	errs := run(prog)
+	errs := run(pkg)
 	if !assert.Len(t, errs, 1) {
 		t.FailNow()
 	}
@@ -95,10 +95,10 @@ func main() {
 	}
 }
 `
-	tmpdir, prog := setupPackage(t, code)
+	tmpdir, pkg := setupPackage(t, code)
 	defer teardownPackage(t, tmpdir)
 
-	errs := run(prog)
+	errs := run(pkg)
 	if !assert.Len(t, errs, 1) {
 		t.FailNow()
 	}
@@ -129,10 +129,10 @@ func main() {
 	}
 }
 `
-	tmpdir, prog := setupPackage(t, code)
+	tmpdir, pkg := setupPackage(t, code)
 	defer teardownPackage(t, tmpdir)
 
-	errs := run(prog)
+	errs := run(pkg)
 	assert.Len(t, errs, 0)
 }
 
@@ -160,10 +160,10 @@ func main() {
 	}
 }
 `
-	tmpdir, prog := setupPackage(t, code)
+	tmpdir, pkg := setupPackage(t, code)
 	defer teardownPackage(t, tmpdir)
 
-	errs := run(prog)
+	errs := run(pkg)
 	assert.Len(t, errs, 0)
 }
 
@@ -179,10 +179,10 @@ type T interface {}
 
 func main() {}
 `
-	tmpdir, prog := setupPackage(t, code)
+	tmpdir, pkg := setupPackage(t, code)
 	defer teardownPackage(t, tmpdir)
 
-	errs := run(prog)
+	errs := run(pkg)
 	if !assert.Len(t, errs, 1) {
 		t.FailNow()
 	}
@@ -199,10 +199,10 @@ package main
 
 func main() {}
 `
-	tmpdir, prog := setupPackage(t, code)
+	tmpdir, pkg := setupPackage(t, code)
 	defer teardownPackage(t, tmpdir)
 
-	errs := run(prog)
+	errs := run(pkg)
 	if !assert.Len(t, errs, 1) {
 		t.FailNow()
 	}
@@ -221,10 +221,10 @@ type T struct {}
 
 func main() {}
 `
-	tmpdir, prog := setupPackage(t, code)
+	tmpdir, pkg := setupPackage(t, code)
 	defer teardownPackage(t, tmpdir)
 
-	errs := run(prog)
+	errs := run(pkg)
 	if !assert.Len(t, errs, 1) {
 		t.FailNow()
 	}
