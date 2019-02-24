@@ -1,25 +1,26 @@
 package main
 
 import (
-	"go/ast"
 	"log"
 	"os"
 	"strings"
 
 	"golang.org/x/tools/go/loader"
+	"golang.org/x/tools/go/packages"
 )
 
 func main() {
 	log.SetFlags(0)
 	if len(os.Args) < 2 {
+		// TODO: Switch this to use golang.org/x/tools/go/packages.
 		log.Fatalf("Usage: go-sumtype <args>\n%s", loader.FromArgsUsage)
 	}
-	pkgpaths := os.Args[1:]
-	prog, err := tycheckAll(pkgpaths)
+	args := os.Args[1:]
+	pkgs, err := tycheckAll(args)
 	if err != nil {
 		log.Fatal(err)
 	}
-	if errs := run(prog); len(errs) > 0 {
+	if errs := run(pkgs); len(errs) > 0 {
 		var list []string
 		for _, err := range errs {
 			list = append(list, err.Error())
@@ -28,39 +29,35 @@ func main() {
 	}
 }
 
-func run(prog *loader.Program) []error {
+func run(pkgs []*packages.Package) []error {
 	var errs []error
 
-	decls, err := findSumTypeDecls(prog)
+	decls, err := findSumTypeDecls(pkgs)
 	if err != nil {
 		return []error{err}
 	}
 
-	defs, defErrs := findSumTypeDefs(prog, decls)
+	defs, defErrs := findSumTypeDefs(decls)
 	errs = append(errs, defErrs...)
 	if len(defs) == 0 {
 		return errs
 	}
 
-	for _, pkg := range prog.InitialPackages() {
-		if pkgErrs := check(prog, defs, pkg); pkgErrs != nil {
+	for _, pkg := range pkgs {
+		if pkgErrs := check(pkg, defs); pkgErrs != nil {
 			errs = append(errs, pkgErrs...)
 		}
 	}
 	return errs
 }
 
-func tycheckAll(pkgpaths []string) (*loader.Program, error) {
-	conf := &loader.Config{
-		AfterTypeCheck: func(info *loader.PackageInfo, files []*ast.File) {
-		},
+func tycheckAll(args []string) ([]*packages.Package, error) {
+	conf := &packages.Config{
+		Mode: packages.LoadSyntax,
 	}
-	if _, err := conf.FromArgs(pkgpaths, true); err != nil {
-		return nil, err
-	}
-	prog, err := conf.Load()
+	pkgs, err := packages.Load(conf, args...)
 	if err != nil {
 		return nil, err
 	}
-	return prog, nil
+	return pkgs, nil
 }

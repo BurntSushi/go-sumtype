@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"go/ast"
 	"go/types"
-
-	"golang.org/x/tools/go/loader"
 )
 
 // unsealedError corresponds to a declared sum type whose interface is not
@@ -53,11 +51,11 @@ type sumTypeDef struct {
 // findSumTypeDefs attempts to find a Go type definition for each of the given
 // sum type declarations. If no such sum type definition could be found for
 // any of the given declarations, then an error is returned.
-func findSumTypeDefs(prog *loader.Program, decls []sumTypeDecl) ([]sumTypeDef, []error) {
+func findSumTypeDefs(decls []sumTypeDecl) ([]sumTypeDef, []error) {
 	var defs []sumTypeDef
 	var errs []error
 	for _, decl := range decls {
-		def, err := newSumTypeDef(decl.PackageInfo.Pkg, decl)
+		def, err := newSumTypeDef(decl.Package.Types, decl)
 		if err != nil {
 			errs = append(errs, err)
 			continue
