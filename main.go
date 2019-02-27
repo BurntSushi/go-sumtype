@@ -53,7 +53,8 @@ func run(pkgs []*packages.Package) []error {
 
 func tycheckAll(args []string) ([]*packages.Package, error) {
 	conf := &packages.Config{
-		Mode: packages.LoadSyntax,
+		Mode:  packages.LoadSyntax,
+		Tests: true,
 	}
 	pkgs, err := packages.Load(conf, args...)
 	if err != nil {
