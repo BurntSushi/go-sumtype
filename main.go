@@ -53,8 +53,18 @@ func run(pkgs []*packages.Package) []error {
 
 func tycheckAll(args []string) ([]*packages.Package, error) {
 	conf := &packages.Config{
-		Mode:  packages.LoadSyntax,
-		Tests: true,
+		Mode: packages.LoadSyntax,
+		// Unfortunately, it appears including the test packages in
+		// this lint makes it difficult to do exhaustiveness checking.
+		// Namely, it appears that compiling the test version of a
+		// package introduces distinct types from the normal version
+		// of the package, which will always result in inexhaustive
+		// errors whenever a package both defines a sum type and has
+		// tests. (Specifically, using `package name`. Using `package
+		// name_test` is OK.)
+		//
+		// It's not clear what the best way to fix this is. :-(
+		Tests: false,
 	}
 	pkgs, err := packages.Load(conf, args...)
 	if err != nil {
