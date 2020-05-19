@@ -167,6 +167,50 @@ func main() {
 	assert.Len(t, errs, 0)
 }
 
+// TestNoMissingInterface tests that we correctly detect exhaustive case when
+// there is an interface which implements the interface we are going to check.
+func TestNoMissingInterface(t *testing.T) {
+	code := `
+package main
+
+//go-sumtype:decl T
+
+type T interface {
+	sealedT()
+}
+
+type A struct {}
+func (a *A) sealedT() {}
+
+type U interface {
+	T
+	sealedU()
+}
+
+type B struct {}
+func (b *B) sealedT() {}
+func (b *B) sealedU() {}
+
+type C struct {}
+func (c *C) sealedT() {}
+func (c *C) sealedU() {}
+
+func main() {
+	switch T(nil).(type) {
+	case *A, *B, *C:
+	}
+	switch T(nil).(type) {
+	case *A, U:
+	}
+}
+`
+	tmpdir, pkgs := setupPackages(t, code)
+	defer teardownPackage(t, tmpdir)
+
+	errs := run(pkgs)
+	assert.Len(t, errs, 0)
+}
+
 // TestNotSealed tests that we report an error if one tries to declare a sum
 // type with an unsealed interface.
 func TestNotSealed(t *testing.T) {

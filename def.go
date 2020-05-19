@@ -107,6 +107,10 @@ func newSumTypeDef(pkg *types.Package, decl sumTypeDecl) (*sumTypeDef, error) {
 		if types.Identical(ty.Underlying(), iface) {
 			continue
 		}
+		_, ok = ty.Underlying().(*types.Interface)
+		if ok {
+			continue
+		}
 		if types.Implements(ty, iface) || types.Implements(types.NewPointer(ty), iface) {
 			def.Variants = append(def.Variants, obj)
 		}
@@ -130,6 +134,11 @@ func (def *sumTypeDef) missing(tys []types.Type) []types.Object {
 			ty = indirect(ty)
 			if types.Identical(varty, ty) {
 				found = true
+			}
+			if iface, ok := ty.Underlying().(*types.Interface); ok {
+				if types.Implements(varty, iface) || types.Implements(types.NewPointer(varty), iface) {
+					found = true
+				}
 			}
 		}
 		if !found {
