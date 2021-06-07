@@ -40,8 +40,10 @@ func findSumTypeDecls(pass *analysis.Pass, ftp filesToPkg) []sumTypeDecl {
 
 		fileDecls, err := sumTypeDeclSearch(filename)
 		if err != nil {
-			pass.Reportf(file.Pos(), "unknown error reading file '%s': %v", file.Name.String(), err)
-			log.Println("returning after sumTypeDeclSearch")
+			pass.Reportf(
+				file.Pos(),
+				"unknown error reading file '%s': %v",
+				file.Name.String(), err)
 			return nil
 		}
 		for i := range fileDecls {
