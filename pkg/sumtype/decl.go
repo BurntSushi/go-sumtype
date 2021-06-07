@@ -1,55 +1,64 @@
-package main
+package sumtype
 
 import (
 	"bufio"
 	"bytes"
-	"fmt"
+	"go/ast"
+	"go/token"
+	"go/types"
 	"log"
 	"os"
 	"path/filepath"
 	"regexp"
 
-	"golang.org/x/tools/go/packages"
+	"golang.org/x/tools/go/analysis"
 )
 
 // sumTypeDecl is a declaration of a sum type in a Go source file.
 type sumTypeDecl struct {
 	// The package path that contains this decl.
-	Package *packages.Package
+	Package *types.Package
 	// The type named by this decl.
 	TypeName string
-	// The file path where this declaration was found.
-	Path string
-	// The line number where this declaration was found.
-	Line int
+	// Position of the declaration
+	Pos token.Pos
 }
 
-// Location returns a short string describing where this declaration was found.
-func (d sumTypeDecl) Location() string {
-	return fmt.Sprintf("%s:%d", d.Path, d.Line)
-}
+type filesToPkg map[*ast.File]*types.Package
 
 // findSumTypeDecls searches every package given for sum type declarations of
 // the form `go-sumtype:decl ...`.
-func findSumTypeDecls(pkgs []*packages.Package) ([]sumTypeDecl, error) {
+func findSumTypeDecls(pass *analysis.Pass, ftp filesToPkg) []sumTypeDecl {
 	var decls []sumTypeDecl
-	for _, pkg := range pkgs {
-		for _, filename := range pkg.CompiledGoFiles {
-			if filepath.Base(filename) == "C" {
-				// ignore (fake?) cgo files
-				continue
-			}
-			fileDecls, err := sumTypeDeclSearch(filename)
-			if err != nil {
-				return nil, err
-			}
-			for i := range fileDecls {
-				fileDecls[i].Package = pkg
-			}
-			decls = append(decls, fileDecls...)
+	for file, pkg := range ftp {
+		pos := pass.Fset.Position(file.Pos())
+		filename := pos.Filename
+		if filepath.Base(filename) == "C" {
+			// ignore (fake?) cgo files
+			continue
 		}
+
+		fileDecls, err := sumTypeDeclSearch(filename)
+		if err != nil {
+			pass.Reportf(
+				file.Pos(),
+				"unknown error reading file '%s': %v",
+				file.Name.String(), err)
+			return nil
+		}
+		for i := range fileDecls {
+			fileDecls[i].Package = pkg
+			obj := pkg.Scope().Lookup(fileDecls[i].TypeName)
+			if obj == nil {
+				// TODO(ifross89): need to figure out how to create a more accurate position
+				fileDecls[i].Pos = file.Pos()
+			} else {
+				fileDecls[i].Pos = obj.Pos()
+			}
+		}
+		decls = append(decls, fileDecls...)
 	}
-	return decls, nil
+	return decls
 }
 
 // sumTypeDeclSearch searches the given file for sum type declarations of the
@@ -76,8 +85,6 @@ func sumTypeDeclSearch(path string) ([]sumTypeDecl, error) {
 		}
 		decls = append(decls, sumTypeDecl{
 			TypeName: ty,
-			Path:     path,
-			Line:     lineNum,
 		})
 	}
 	if err := scanner.Err(); err != nil {
@@ -86,7 +93,7 @@ func sumTypeDeclSearch(path string) ([]sumTypeDecl, error) {
 		// otherwise move on.
 		log.Printf("scan error reading '%s': %s", path, err)
 	}
-	return decls, nil
+	return decls, f.Close()
 }
 
 var reParseSumTypeDecl = regexp.MustCompile(`^//go-sumtype:decl\s+(\S+)\s*$`)

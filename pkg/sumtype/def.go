@@ -1,43 +1,10 @@
-package main
+package sumtype
 
 import (
-	"fmt"
-	"go/ast"
 	"go/types"
+
+	"golang.org/x/tools/go/analysis"
 )
-
-// unsealedError corresponds to a declared sum type whose interface is not
-// sealed. A sealed interface requires at least one unexported method.
-type unsealedError struct {
-	Decl sumTypeDecl
-}
-
-func (e unsealedError) Error() string {
-	return fmt.Sprintf(
-		"%s: interface '%s' is not sealed "+
-			"(sealing requires at least one unexported method)",
-		e.Decl.Location(), e.Decl.TypeName)
-}
-
-// notFoundError corresponds to a declared sum type whose type definition
-// could not be found in the same Go package.
-type notFoundError struct {
-	Decl sumTypeDecl
-}
-
-func (e notFoundError) Error() string {
-	return fmt.Sprintf("%s: type '%s' is not defined", e.Decl.Location(), e.Decl.TypeName)
-}
-
-// notInterfaceError corresponds to a declared sum type that does not
-// correspond to an interface.
-type notInterfaceError struct {
-	Decl sumTypeDecl
-}
-
-func (e notInterfaceError) Error() string {
-	return fmt.Sprintf("%s: type '%s' is not an interface", e.Decl.Location(), e.Decl.TypeName)
-}
 
 // sumTypeDef corresponds to the definition of a Go interface that is
 // interpreted as a sum type. Its variants are determined by finding all types
@@ -50,39 +17,36 @@ type sumTypeDef struct {
 
 // findSumTypeDefs attempts to find a Go type definition for each of the given
 // sum type declarations. If no such sum type definition could be found for
-// any of the given declarations, then an error is returned.
-func findSumTypeDefs(decls []sumTypeDecl) ([]sumTypeDef, []error) {
+// any of the given declarations an error is reported and it is not added to
+// the returned slice
+func findSumTypeDefs(pass *analysis.Pass, decls []sumTypeDecl) []sumTypeDef {
 	var defs []sumTypeDef
-	var errs []error
 	for _, decl := range decls {
-		def, err := newSumTypeDef(decl.Package.Types, decl)
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
+		def := newSumTypeDef(pass, decl.Package, decl)
 		if def == nil {
-			errs = append(errs, notFoundError{decl})
 			continue
 		}
 		defs = append(defs, *def)
 	}
-	return defs, errs
+	return defs
 }
 
 // newSumTypeDef attempts to extract a sum type definition from a single
 // package. If no such type corresponds to the given decl, then this function
-// returns a nil def and a nil error.
+// returns a nil def and an error is reported.
 //
 // If the decl corresponds to a type that isn't an interface containing at
-// least one unexported method, then this returns an error.
-func newSumTypeDef(pkg *types.Package, decl sumTypeDecl) (*sumTypeDef, error) {
+// least one unexported method, an error is reported.
+func newSumTypeDef(pass *analysis.Pass, pkg *types.Package, decl sumTypeDecl) *sumTypeDef {
 	obj := pkg.Scope().Lookup(decl.TypeName)
 	if obj == nil {
-		return nil, nil
+		pass.Reportf(decl.Pos, "type '%s' is not defined", decl.TypeName)
+		return nil
 	}
 	iface, ok := obj.Type().Underlying().(*types.Interface)
 	if !ok {
-		return nil, notInterfaceError{decl}
+		pass.Reportf(decl.Pos, "type '%s' is not an interface", decl.TypeName)
+		return nil
 	}
 	hasUnexported := false
 	for i := 0; i < iface.NumMethods(); i++ {
@@ -92,7 +56,10 @@ func newSumTypeDef(pkg *types.Package, decl sumTypeDecl) (*sumTypeDef, error) {
 		}
 	}
 	if !hasUnexported {
-		return nil, unsealedError{decl}
+		pass.Reportf(decl.Pos, "interface '%s' is not sealed "+
+			"(sealing requires at least one unexported method)",
+			decl.TypeName)
+		return nil
 	}
 	def := &sumTypeDef{
 		Decl: decl,
@@ -111,7 +78,7 @@ func newSumTypeDef(pkg *types.Package, decl sumTypeDecl) (*sumTypeDef, error) {
 			def.Variants = append(def.Variants, obj)
 		}
 	}
-	return def, nil
+	return def
 }
 
 func (def *sumTypeDef) String() string {
@@ -145,12 +112,4 @@ func indirect(ty types.Type) types.Type {
 		return indirect(ty.Elem())
 	}
 	return ty
-}
-
-func pkgFiles(pkg *ast.Package) []*ast.File {
-	var files []*ast.File
-	for _, file := range pkg.Files {
-		files = append(files, file)
-	}
-	return files
 }

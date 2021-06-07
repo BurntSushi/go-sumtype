@@ -1,58 +1,21 @@
-package main
+package sumtype
 
 import (
-	"fmt"
 	"go/ast"
-	"go/token"
 	"go/types"
 	"sort"
 	"strings"
 
-	"golang.org/x/tools/go/packages"
+	"golang.org/x/tools/go/analysis"
 )
 
-// inexhaustiveError is returned from check for each occurrence of inexhaustive
-// case analysis in a Go type switch statement.
-type inexhaustiveError struct {
-	Pos     token.Position
-	Def     sumTypeDef
-	Missing []types.Object
-}
-
-func (e inexhaustiveError) Error() string {
-	return fmt.Sprintf(
-		"%s: exhaustiveness check failed for sum type '%s': missing cases for %s",
-		e.Pos, e.Def.Decl.TypeName, strings.Join(e.Names(), ", "))
-}
-
-// Names returns a sorted list of names corresponding to the missing variant
-// cases.
-func (e inexhaustiveError) Names() []string {
+func missingNames(objs []types.Object) []string {
 	var list []string
-	for _, o := range e.Missing {
+	for _, o := range objs {
 		list = append(list, o.Name())
 	}
-	sort.Sort(sort.StringSlice(list))
+	sort.Strings(list)
 	return list
-}
-
-// check does exhaustiveness checking for the given sum type definitions in the
-// given package. Every instance of inexhaustive case analysis is returned.
-func check(pkg *packages.Package, defs []sumTypeDef) []error {
-	var errs []error
-	for _, astfile := range pkg.Syntax {
-		ast.Inspect(astfile, func(n ast.Node) bool {
-			swtch, ok := n.(*ast.TypeSwitchStmt)
-			if !ok {
-				return true
-			}
-			if err := checkSwitch(pkg, defs, swtch); err != nil {
-				errs = append(errs, err)
-			}
-			return true
-		})
-	}
-	return errs
 }
 
 // checkSwitch performs an exhaustiveness check on the given type switch
@@ -63,19 +26,17 @@ func check(pkg *packages.Package, defs []sumTypeDef) []error {
 // Note that if the type switch contains a non-panicing default case, then
 // exhaustiveness checks are disabled.
 func checkSwitch(
-	pkg *packages.Package,
+	pass *analysis.Pass,
 	defs []sumTypeDef,
 	swtch *ast.TypeSwitchStmt,
-) error {
-	def, missing := missingVariantsInSwitch(pkg, defs, swtch)
+) {
+	def, missing := missingVariantsInSwitch(pass, defs, swtch)
 	if len(missing) > 0 {
-		return inexhaustiveError{
-			Pos:     pkg.Fset.Position(swtch.Pos()),
-			Def:     *def,
-			Missing: missing,
-		}
+		pass.Reportf(
+			swtch.Pos(),
+			"exhaustiveness check failed for sum type '%s': missing cases for %s",
+			def.Decl.TypeName, strings.Join(missingNames(missing), ", "))
 	}
-	return nil
 }
 
 // missingVariantsInSwitch returns a list of missing variants corresponding to
@@ -83,27 +44,28 @@ func checkSwitch(
 // returned. (If no sum type definition could be found, then no exhaustiveness
 // checks are performed, and therefore, no missing variants are returned.)
 func missingVariantsInSwitch(
-	pkg *packages.Package,
+	pass *analysis.Pass,
 	defs []sumTypeDef,
 	swtch *ast.TypeSwitchStmt,
 ) (*sumTypeDef, []types.Object) {
 	asserted := findTypeAssertExpr(swtch)
-	ty := pkg.TypesInfo.TypeOf(asserted)
+	ty := pass.TypesInfo.TypeOf(asserted)
 	def := findDef(defs, ty)
 	if def == nil {
-		// We couldn't find a corresponding sum type, so there's
-		// nothing we can do to check it.
 		return nil, nil
 	}
+
 	variantExprs, hasDefault := switchVariants(swtch)
 	if hasDefault && !defaultClauseAlwaysPanics(swtch) {
 		// A catch-all case defeats all exhaustiveness checks.
 		return def, nil
 	}
+
 	var variantTypes []types.Type
 	for _, expr := range variantExprs {
-		variantTypes = append(variantTypes, pkg.TypesInfo.TypeOf(expr))
+		variantTypes = append(variantTypes, pass.TypesInfo.TypeOf(expr))
 	}
+
 	return def, def.missing(variantTypes)
 }
 
