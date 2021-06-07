@@ -33,10 +33,10 @@ func findSumTypeDefs(pass *analysis.Pass, decls []sumTypeDecl) []sumTypeDef {
 
 // newSumTypeDef attempts to extract a sum type definition from a single
 // package. If no such type corresponds to the given decl, then this function
-// returns a nil def and a nil error.
+// returns a nil def and an error is reported
 //
 // If the decl corresponds to a type that isn't an interface containing at
-// least one unexported method, then this returns an error.
+// least one unexported method, an error is reported
 func newSumTypeDef(pass *analysis.Pass, pkg *types.Package, decl sumTypeDecl) *sumTypeDef {
 	obj := pkg.Scope().Lookup(decl.TypeName)
 	if obj == nil {
