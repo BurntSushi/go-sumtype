@@ -37,7 +37,6 @@ func checkSwitch(
 			"exhaustiveness check failed for sum type '%s': missing cases for %s",
 			def.Decl.TypeName, strings.Join(missingNames(missing), ", "))
 	}
-	return
 }
 
 // missingVariantsInSwitch returns a list of missing variants corresponding to

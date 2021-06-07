@@ -4,15 +4,18 @@ import "fmt"
 
 //go-sumtype:decl T
 
-type T interface { sealed() }
+type T interface{ sealed() }
 
-type A struct {}
+type A struct{}
+
 func (a *A) sealed() {}
 
-type B struct {}
+type B struct{}
+
 func (b *B) sealed() {}
 
-type C struct {}
+type C struct{}
+
 func (c *C) sealed() {}
 
 func main() {
