@@ -173,11 +173,32 @@ func findTypeAssertExpr(swtch *ast.TypeSwitchStmt) ast.Expr {
 // findDef returns the sum type definition corresponding to the given type. If
 // no such sum type definition exists, then nil is returned.
 func findDef(defs []sumTypeDef, needle types.Type) *sumTypeDef {
+	needleIface, ok := needle.Underlying().(*types.Interface)
+	if !ok {
+		return nil
+	}
 	for i := range defs {
 		def := &defs[i]
-		if types.Identical(needle.Underlying(), def.Ty) {
+		defIface := def.Ty
+		// NOTE(kostis): Notably we are not (and were not previously either)
+		// checking whether the names for the two interfaces are identical. What
+		// if we have multiple variants with the same sealed method?
+		if identicalBackwardsCompatible(needleIface, defIface) {
 			return def
 		}
 	}
 	return nil
+}
+
+func identicalBackwardsCompatible(x, y *types.Interface) bool {
+	// the old logic, persisted so that we don't accidentally break users
+	if types.Identical(x, y) {
+		return true
+	}
+
+	if implementsUnifying(x, y) && implementsUnifying(y, x) {
+		return true
+	}
+
+	return false
 }

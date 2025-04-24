@@ -117,7 +117,11 @@ func newSumTypeDef(pkg *types.Package, decl sumTypeDecl) (*sumTypeDef, error) {
 		if types.Identical(ty.Underlying(), iface) {
 			continue
 		}
-		if types.Implements(ty, iface) || types.Implements(types.NewPointer(ty), iface) {
+		_, ok = ty.Underlying().(*types.Struct)
+		if !ok {
+			continue
+		}
+		if implementsBackwardsCompatible(ty, iface) {
 			def.Variants = append(def.Variants, obj)
 		}
 	}
@@ -125,6 +129,19 @@ func newSumTypeDef(pkg *types.Package, decl sumTypeDecl) (*sumTypeDef, error) {
 		return nil, noVariantsError{decl}
 	}
 	return def, nil
+}
+
+func implementsBackwardsCompatible(ty types.Type, iface *types.Interface) bool {
+	// the old logic, persisted so that we don't accidentally break users
+	if types.Implements(ty, iface) || types.Implements(types.NewPointer(ty), iface) {
+		return true
+	}
+
+	if implementsUnifying(ty, iface) || implementsUnifying(types.NewPointer(ty), iface) {
+		return true
+	}
+
+	return false
 }
 
 func (def *sumTypeDef) String() string {
@@ -138,9 +155,14 @@ func (def *sumTypeDef) missing(tys []types.Type) []types.Object {
 	var missing []types.Object
 	for _, v := range def.Variants {
 		found := false
-		varty := indirect(v.Type())
+		varty := mustNamedObjType(v.Type())
 		for _, ty := range tys {
-			ty = indirect(ty)
+			ty, ok := namedObjType(ty)
+			if !ok {
+				// worst case we'll cause a spurious error to the user,
+				// almost as bad as panicking
+				continue
+			}
 			if types.Identical(varty, ty) {
 				found = true
 			}
@@ -150,6 +172,22 @@ func (def *sumTypeDef) missing(tys []types.Type) []types.Object {
 		}
 	}
 	return missing
+}
+
+func namedObjType(ty types.Type) (types.Type, bool) {
+	ty = indirect(ty)
+	if ty, ok := ty.(*types.Named); ok {
+		return ty.Obj().Type(), true
+	}
+	return nil, false
+}
+
+func mustNamedObjType(ty types.Type) types.Type {
+	ty, ok := namedObjType(ty)
+	if !ok {
+		panic(fmt.Sprintf("expected named type, got %T (%+v)", ty, ty))
+	}
+	return ty
 }
 
 // indirect dereferences through an arbitrary number of pointer types.
