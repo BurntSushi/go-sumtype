@@ -39,6 +39,16 @@ func (e notInterfaceError) Error() string {
 	return fmt.Sprintf("%s: type '%s' is not an interface", e.Decl.Location(), e.Decl.TypeName)
 }
 
+// noVariantsError corresponds to a declared sum type for which no variants
+// could be found in the same Go package.
+type noVariantsError struct {
+	Decl sumTypeDecl
+}
+
+func (e noVariantsError) Error() string {
+	return fmt.Sprintf("%s: type '%s' has no variants", e.Decl.Location(), e.Decl.TypeName)
+}
+
 // sumTypeDef corresponds to the definition of a Go interface that is
 // interpreted as a sum type. Its variants are determined by finding all types
 // that implement said interface in the same package.
@@ -110,6 +120,9 @@ func newSumTypeDef(pkg *types.Package, decl sumTypeDecl) (*sumTypeDef, error) {
 		if types.Implements(ty, iface) || types.Implements(types.NewPointer(ty), iface) {
 			def.Variants = append(def.Variants, obj)
 		}
+	}
+	if len(def.Variants) == 0 {
+		return nil, noVariantsError{decl}
 	}
 	return def, nil
 }
