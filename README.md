@@ -1,5 +1,46 @@
-go-sumtype
+go-sumtype~~2~~
 ==========
+
+## 🚧 Fork Features
+
+This fork builds on the excellent work in the upstream
+[BurntSushi/go-sumtype](https://github.com/BurntSushi/go-sumtype), and adds the
+following changes.
+
+- **Generic variant support**:
+  This fork supports generic variants (i.e., variants with a type parameter).
+  Checks like the following to detect missing variants that did not work
+  upstream, work on this fork:
+
+  ```go
+  switch s.(type) {
+  case Sealed1[T]:
+  // case Sealed2[T]:
+  }
+  ```
+
+- **Stricter checks**:
+  The tool now **errors when no variants are found** for a declared sumtype,
+  instead of silently succeeding. This makes potential issues more visible.
+
+- **Formatter friendilness**:
+  `// go-sumtype:` declarations (with a space) are now supported, accommodating
+  the formatting applied by `gofmt`.
+
+### Installation
+
+```
+$ go install github.com/smartcontractkit/go-sumtype2@latest
+```
+
+### Usage
+
+```
+$ go-sumtype2 ./...
+```
+
+---
+
 A simple utility for running exhaustiveness checks on type switch statements.
 Exhaustiveness checks are only run on interfaces that are declared to be
 "sum types."
