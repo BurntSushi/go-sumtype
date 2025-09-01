@@ -1,11 +1,13 @@
-go-sumtype~~2~~
-==========
+go-sumtype2
+===========
 
-## 🚧 Fork Features
+## Fork Features
 
-This fork builds on the excellent work in the upstream
-[BurntSushi/go-sumtype](https://github.com/BurntSushi/go-sumtype), and adds the
-following changes.
+This fork builds upon the excellent work of the original
+[BurntSushi/go-sumtype](https://github.com/BurntSushi/go-sumtype) project, with
+a strong emphasis on safety and compatibility with newer Go versions.
+
+Notable changes:
 
 - **Generic variant support**:
   This fork supports generic variants (i.e., variants with a type parameter).
@@ -26,6 +28,8 @@ following changes.
 - **Formatter friendilness**:
   `// go-sumtype:` declarations (with a space) are now supported, accommodating
   the formatting applied by `gofmt`.
+
+- **Support for type aliases in case statements**
 
 ### Installation
 

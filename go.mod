@@ -1,4 +1,4 @@
-module github.com/BurntSushi/go-sumtype
+module github.com/smartcontractkit/go-sumtype2
 
 go 1.24
 
