@@ -1,0 +1,17 @@
+name: build & test
+permissions:
+  contents: read
+on:
+  push:
+    branches: [master]
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          cache: true
+      - run: go build ./...
+      - run: go test -race ./...
