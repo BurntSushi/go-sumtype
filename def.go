@@ -183,17 +183,20 @@ func namedObjType(ty types.Type) (types.Type, bool) {
 }
 
 func mustNamedObjType(ty types.Type) types.Type {
-	ty, ok := namedObjType(ty)
+	nty, ok := namedObjType(ty)
 	if !ok {
 		panic(fmt.Sprintf("expected named type, got %T (%+v)", ty, ty))
 	}
-	return ty
+	return nty
 }
 
-// indirect dereferences through an arbitrary number of pointer types.
+// indirect dereferences through an arbitrary number of pointer types or aliases.
 func indirect(ty types.Type) types.Type {
 	if ty, ok := ty.(*types.Pointer); ok {
 		return indirect(ty.Elem())
+	}
+	if ty, ok := ty.(*types.Alias); ok {
+		return indirect(types.Unalias(ty))
 	}
 	return ty
 }
